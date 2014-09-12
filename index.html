@@ -1,0 +1,114 @@
+<!DOCTYPE html><html lang="en-US">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>
+      presentation-cast Demo Presentations
+    </title>
+    <script type="text/javascript">
+      <!--
+function setupPage() {
+  var presentation = navigator.presentation,
+    showButton = document.getElementById('show'),
+    stopButton = document.getElementById('stop'),
+    presentationButtons = document.getElementsByClassName('present');
+
+  var session = null;
+  var screenAvailable = false;
+  var presentationUrl = localStorage['presentationUrl'];
+  var presentationId = localStorage['presentationId'];
+
+  // Join an existing presentation if one exists.
+  if (presentationUrl && presentationId) {
+    presentation.joinSession(presentationUrl, presentationId).then(
+      function(existingSession) {
+        setSession(existingSession);
+        updateButtons();
+      },
+      function() {
+        // No session to join.
+      });
+  }
+
+  presentation.onavailablechange = function(e) {
+    screenAvailable = e.available;
+    updateButtons();
+  };
+
+  function updateButtons() {
+    stopButton.disabled = !session;
+    stopButton.onClick = session ? stopPresent : null;
+    showButton.disabled = !screenAvailable;
+    showButton.onclick = screenAvailable ? startPresent : null;
+  };
+
+  function startPresent() {
+    var presentationUrl = null;
+    presentationButtons.forEach(function(button) {
+      if (button.checked) {
+        presentationUrl = button.value;
+      }
+    });
+    if (!presentationUrl) return;
+    var presentationId = new String((Math.random() * 10000).toFixed(0));
+
+    presentation.requestSession(presentationUrl, presentationId).then(
+        function(newSession) {
+          setSession(newSession);
+          updateButtons();
+        },
+        function() {
+          // User cancelled, etc.
+        });
+    };
+
+  function stopPresent() {
+    if (!session) return;
+    session.close();
+    delete localStorage['presentationId'];
+    delete localStorage['presentationUrl'];
+  };
+
+  function setSession(theSession) {
+    console.log('Setting current presentation: ' + session.url +
+      ', id = ' + session.id + ', state = ' + session.state);
+    // NOTE: We could instead close the current session.
+    if (session) return;
+    session = theSession;
+    localStorage['presentationUrl'] = session.url;
+    localStorage['presentationId'] = session.id;
+    session.onstatechange = function() {
+      console.log('Presentation ' + session.url + ', id = ' + session.id +
+          ', state = ' + session.state);
+      switch (session.state) {
+        case 'connected':
+          session.postMessage(/*...*/);
+          session.onmessage = function() { /*...*/ };
+          break;
+        case 'disconnected':
+          console.log('Disconnected.');
+          break;
+      }
+    };
+  }
+}
+
+// Set up page when the presentation_cast.js polyfill notifies us that
+// the Cast SDK is fully initialized.
+window['__OnPresentationAPIAvailable'] = function() {
+  setupPage();
+};
+-->
+    </script>
+    <script src="presentation_cast.js" type="text/javascript"/>
+  </head>
+  <body>
+    <h1>presentation-cast Demo Presentations</h1>
+    <form action="#">
+      <input class="present" type="radio" value="/presentations/photo_slideshow.html" name="presentation">
+        Photo Slideshow
+      </input>
+      <input id="show" type="submit" value="Show"/>
+      <input id="stop" type="reset" value="Stop"/>
+    </form>
+  </body>
+</html>
