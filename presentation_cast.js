@@ -1,4 +1,10 @@
 (function() {
+  // Utility for logging messages to the developer console.
+  window.log = {
+    info: function(message) {console.info('[PAPI] ' + message);},
+    warn: function(message) {console.warn('[PAPI] ' + message);},
+    error: function(message) {console.error('[PAPI] ' + message);}
+  };
 
   var presentation = {};
 
@@ -17,7 +23,7 @@
   //   requestSession
   presentation.requestSession = function(url, presentationId, opt_onlyReconnect) {
     if (this.requestedSession_) {
-      console.log('There is already a presentation request pending for '
+      console.info('There is already a presentation request pending for '
           + this.requestedSession_.getKey());
       return;
     }
@@ -94,7 +100,7 @@
   // Implementation specific functions.  Not part of public API.
   PresentationSession.prototype.setCastSession_ = function(session) {
     if (this.castSession_) {
-      console.log('PresentationSession ' + this.getKey_() +
+      console.info('PresentationSession ' + this.getKey_() +
           ' already associated with Cast session ' + session.id);
       return;
     }
@@ -200,13 +206,13 @@
     chrome.cast.initialize(
         apiConfig,
         function() {
-          console.log('Cast Sender SDK initialized successfully'),
+          console.info('Cast Sender SDK initialized successfully'),
           if (typeof window['__OnPresentationAPIAvailable'] == 'function') {
             window['__OnPresentationAPIAvailable']();
           }
         },
         function(error) {
-          console.log('Unable to initialize Cast Sender SDK: ' + JSON.stringify(error));
+          console.info('Unable to initialize Cast Sender SDK: ' + JSON.stringify(error));
         });
   };
 
@@ -216,7 +222,7 @@
     if (loaded) {
       initializeCast_();
     } else {
-      console.log('Cast Sender SDK not available: ' + JSON.stringify(error));
+      console.info('Cast Sender SDK not available: ' + JSON.stringify(error));
     };
   var script = document.createElement('script');
   script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js';
