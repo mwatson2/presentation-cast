@@ -27,9 +27,8 @@
   var pendingSession_ = null;
 
   // https://webscreens.github.io/slidyremote/receiver.html
-  var PRESENTATION_APP_ID = '673D55D4';
-  var PRESENTATION_API_NAMESPACE_ =
-      'urn:x-cast:org.w3.webscreens.presentationapi.shim';
+  var SLIDY_APP_ID_ = '673D55D4';
+  var SLIDY_NAMESPACE_ = 'urn:x-cast:org.w3.webscreens.presentationapi.shim';
   var ORIGIN_RE_ = new RegExp('https?://[^/]+');
 
   // @return {string} A random 8 character identifier.
@@ -146,7 +145,7 @@
   PresentationSession.prototype.postMessage = function(message) {
     if (this.castSession_ && this.state == 'connected') {
       log.info('postMessage to ' + this.key_ + ': ' + message);
-      this.castSession_.sendMessage(PRESENTATION_API_NAMESPACE,
+      this.castSession_.sendMessage(SLIDY_NAMESPACE_,
                                     message,
                                     null,
                                     this.close.bind(this));
@@ -189,7 +188,7 @@
     }
     this.castSession_ = session;
     this.castSessionId = session.id;
-    this.castSession_.addMessageListener(PRESENTATION_API_NAMESPACE_,
+    this.castSession_.addMessageListener(SLIDY_NAMESPACE_,
                                          this.onPresentationMessage_.bind(this));
     this.castSession_.addUpdateListener(this.onCastSessionUpdate_.bind(this));
     this.state = 'connected';
@@ -198,7 +197,7 @@
 
   PresentationSession.prototype.onPresentationMessage_ =
       function(namespace, message) {
-    if (namespace != CAST_NAMESPACE_ ||
+    if (namespace != SLIDY_NAMESPACE_ ||
         typeof(this.onmessage) != 'function') {
       return;
     }
@@ -240,29 +239,29 @@
   ////////////////////////////////////////////////////////////////////////////
   // Integration with Cast SDK.
 
-  // Invoked when a Cast session is connected.  Currently we don't support
-  // automatic connection.
+  // Invoked when a Cast session is automatically connected.  Currently we don't
+  // support auto-join/auto-fling with this polyfill.
   var onCastSession_ = function(castSession) {
     log.info('onCastSession: connected to session ' + castSession.sessionId);
   };
 
   // Invoked when a Cast receiver is available or not.
   var onCastReceiverAvailable_ = function(availability) {
-    if (typeof(presentation.onavailablechange) != 'function') {
+    if (typeof(navigator.presentation.onavailablechange) != 'function') {
       return;
     }
     log.info('onCastReceiverAvailable: available = ' + availability);
     if (availability == chrome.cast.ReceiverAvailability.AVAILABLE) {
-      presentation.onavailablechange(new AvailableChangeEvent(true));
+      navigator.presentation.onavailablechange(new AvailableChangeEvent(true));
     } else {
-      presentation.onavailablechange(new AvailableChangeEvent(false));
+      navigator.presentation.onavailablechange(new AvailableChangeEvent(false));
     }
   };
 
   var initializeCast_ = function() {
     return new Promise(function(resolve, reject) {
       var apiConfig = new chrome.cast.ApiConfig(
-          new chrome.cast.SessionRequest(PRESENTATION_APP_ID),
+          new chrome.cast.SessionRequest(SLIDY_APP_ID_),
           onCastSession_,
           onCastReceiverAvailable_,
           chrome.cast.AutoJoinPolicy.PAGE_SCOPED);
