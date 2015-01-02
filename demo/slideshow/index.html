@@ -4,26 +4,11 @@
     <title>
       Presentation API Demo - Photo Slideshow
     </title>
-    <script src="presentation_cast.js" type="text/javascript"/>
-    <script src="presentation_control.js" type="text/javascript"/>
+    <script src="../../presentation_cast.js" type="text/javascript"/>
     <script type="text/javascript">
-      <!--
-         var controller = new PresentationController();
-         if (navigator.presentation) {
-           controller.initialize();
-         } else {
-           window['__OnPresentationAPIAvailable'] = function() {
-             controller.initialize();
-           }
-         }
-      -->
     </script>
   </head>
   <body>
     <h1>Presentation API Demo - Photo Slideshow</h1>
-    <form action="#">
-      <input id="show" type="submit" value="Start Presentation" onclick="function(){controller.startPresent(document.forms[0].presentation.value).then(function(newSession) {window.photoSession = new PhotoSession(newSession);}); return true;}"/>
-      <input id="stop" type="reset" value="Stop Presentation" onclick="function(){controller.stopPresent(); return true;}"/>
-    </form>
   </body>
 </html>

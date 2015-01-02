@@ -1,116 +1,148 @@
+// presentation_cast.js
+// Implementation of the Presentation API [1] using the Google Cast SDK [2]
+// mark a. foltz <mfoltz@google.com>
+// [1] http://w3c.github.io/presentation-api/
+// [2] https://developers.google.com/cast/docs/reference/chrome/
+
 (function() {
+
   // Utility for logging messages to the developer console.
   window.log = {
-    info: function(message) {console.info('[papi] ' + message);},
-    warn: function(message) {console.warn('[papi] ' + message);},
-    error: function(message) {console.error('[papi] ' + message);}
+    info: function(message) {console.info('[presentation_cast] ' + message);},
+    warn: function(message) {console.warn('[presentation_cast] ' + message);},
+    error: function(message) {console.error('[presentation_cast] ' + message);}
   };
-
-  var presentation = {};
-
-  // Event handler for OnAvailableChangeEvent.
-  presentation.onavailablechange = null;
 
   ////////////////////////////////////////////////////////////////////////////
   // Bookkeeping for the polyfill.
 
-  // Map from presentation-URL|id to the corresponding PresentationSession.
+  // Whether the SDK is initialized.
+  var castApiInitialized_ = false;
+  // Map from presentationUrlL|id to the corresponding PresentationSession.
   var presentationSessions_ = {};
-  // Map from Cast session id to the corresponding presentation-URL|id.
+  // Map from Cast session id to the corresponding PresentationSession.
   var castSessions_ = {};
-  // The next presentation id to hand out (if one is not provided).
-  var nextId_ = null;
+  // Keeps track of the PresentationSession that is currently being started or
+  // joined, to link up with listeners in the Cast SDK.
+  var pendingSession_ = null;
 
   // https://webscreens.github.io/slidyremote/receiver.html
-  var CAST_APP_ID = '673D55D4';
+  var PRESENTATION_APP_ID = '673D55D4';
   var PRESENTATION_API_NAMESPACE_ =
       'urn:x-cast:org.w3.webscreens.presentationapi.shim';
   var ORIGIN_RE_ = new RegExp('https?://[^/]+');
-  var NEXT_ID_KEY_ = 'navigator.presentation.nextId';
 
-  var getNextId_ = function() {
-    if (!nextId) {
-      // Initialize nextId.
-      if (localStorage[NEXT_ID_KEY_]) {
-        nextId = new Number(localStorage[NEXT_ID_KEY_]);
-      } else {
-        nextId = 9999;
-      }
-    }
-    nextId++;
-    localStorage[NEXT_ID_KEY_] = nextId;
-    return nextId;
+  // @return {string} A random 8 character identifier.
+  var generateId_ = function() {
+    return (Math.round(Math.random() * 3221225472) + 1073741824).toString(16);
   };
 
   ////////////////////////////////////////////////////////////////////////////
   // Implementation of Presentation API at
   // http://webscreens.github.io/presentation-api/
-  presentation.requestSession = function(url, opt_id) {
-    var id = opt_id || getNextId_();
-    var session = new PresentationSession(url, id);
 
-    // See if we already have a PresentationSession for this request.
-    if (presentationSessions_[session.key_]) {
-      return presentationSessions_[session.key_];
-    }
-    // Otherwise create a new session.
-    presentationSessions_[session.key_] = session;
-
-    // If the PresentationSession already has a Cast session attached return it.
-    if (session.hasCastSession_()) {
-      return session;
-    } else if (session.castSessionId_) {
-      // If the Cast session id is known for the PresentationSession, request
-      // it.
-      chrome.cast.lookupSessionById(session.castSessionId_);
-    } else {
-      // Request a new Cast session.
-      chrome.cast.requestSession();
-    }
-    // Return the PresentationSession.
-    // TODO: Return a Promise that is resolved when the session is connected.
-    return session;
+  // Namespace for the Presentation API
+  var presentation = {
+    // Event handler for AvailableChangeEvent.
+    onavailablechange: null,
+    // Is always null on the controlling page.
+    session: null
   };
 
-  presentation.joinSession = function(url, id) {
-    // TODO: Reduce duplication between requestSession() and joinSession().
-    var session = new PresentationSession(url, id);
-    // If there is an existing session for the presentation, just return it.
-    if (presentationSessions_[session.key_]) {
-      return presentationSessions_[session.key_];
-    }
-    // Otherwise create a new session.
-    presentationSessions_[session.key_] = session;
-
-    // If the PresentationSession already has a Cast session attached return it.
-    if (session.hasCastSession_()) {
-      return session;
-    } else if (session.castSessionId_) {
-      // If the Cast session id is known for the PresentationSession, request
-      // it.
-      chrome.cast.lookupSessionById(session.castSessionId_);
-    } else {
-      // Must await for a session to be joined by the Cast SDK.
-    }
-    // Return the PresentationSession.
-    // TODO: Return a Promise that is resolved when the session is connected.
-    return session;
+  // Constructor for AvailableChangeEvent.
+  // @param {boolean} available True if a screen is available, false otherwise.
+  var AvailableChangeEvent = function(available) {
+    this.bubbles = false;
+    this.cancelable = false;
+    this.available = available;
   };
 
-  var PresentationSession = function(url, id) {
-    this.url = url;
-    this.id = id;
+  // Constructor for StateChangeEvent.
+  var StateChangeEvent = function(state) {
+    this.bubbles = false;
+    this.cancelable = false;
+    this.state = state;
+  };
+
+  // Requests the initiation of a new presentation.
+  // @param {string} presentationUrl The URL of the document to present.
+  // @param {string=} presentationId An optional id to assign the presentation.
+  //     If not provided, a random one will be assigned.
+  presentation.startSession = function(presentationUrl, presentationId) {
+    var session = new PresentationSession(presentationUrl,
+                                          presentationId || generateId_());
+    return new Promise(function(resolve, reject) {
+      if (!castApiInitialized_) {
+        reject(Error('Cast SDK not initialized'));
+        return;
+      }
+
+      var existingSession = presentationSessions_[session.key_];
+      if (existingSession) {
+        // User agent cannot have two sessions with identical URL+id.
+        // TODO(mfoltz): Resolve to the existing session if the user selects
+        // a screen running the same Cast session.
+        reject(Error('Session already running for ' + session.key_));
+        return;
+      }
+
+      presentationSessions_[session.key_] = session;
+
+      // Request a new session from the Cast SDK.
+      chrome.cast.requestSession(function(castSession) {
+        log.info('Got cast session ' + castSession.sessionId +
+            ' for presentation ' + session.key_);
+        session.setCastSession_(castSession);
+        castSessions_[castSession.sessionId] = session;
+        session.maybePresentUrl_();
+        resolve(session);
+      }, function(castError) {
+        reject(Error('Unable to create Cast session: ' + JSON.stringify(castError)));
+      });
+    });
+  };
+
+  // Requests the PresentationSession for an existing presentation.
+  // @param {string} presentationUrl The URL of the document being presented.
+  // @param {string} presentationId The id of the presentation..
+  presentation.joinSession = function(presentationUrl, presentationId) {
+    var session = new PresentationSession(presentationUrl,
+                                          presentationId || generateId_());
+    return new Promise(function(resolve, reject) {
+      if (!castApiInitialized_) {
+        reject(Error('Cast SDK not initialized'));
+        return;
+      }
+
+      var existingSession = presentationSessions_[session.key_];
+      if (existingSession) {
+        resolve(existingSession);
+      } else {
+        // TODO(mfoltz): Keep promise pending in case the session is discovered later.
+        reject(Error('No session available for ' + session.key_));
+      }
+    });
+  };
+
+  // Constructor for PresentationSession.
+  // @param {string} presentationUrl The URL of the presentation.
+  // @param {string} presentationId The id of the presentation.
+  var PresentationSession = function(presentationUrl, presentationId) {
+    this.url = presentationUrl;
+    this.id = presentationId;
     this.state = 'disconnected';
     this.onmessage = null;
     this.onstatechange = null;
 
-    // Protected properties
-    this.key_ = url + '|' + id;
-    this.origin_ = ORIGIN_RE_.exec(url)[0];
+    // Private properties.
+    this.key_ = this.url + '|' + this.id;
+    this.origin_ = ORIGIN_RE_.exec(this.url)[0];
     this.castSessionId_ = null;
     this.castSession_ = null;
   };
 
+  // Posts a message to the presentation.
+  // @param {string} message The message to send.
   PresentationSession.prototype.postMessage = function(message) {
     if (this.castSession_ && this.state == 'connected') {
       log.info('postMessage to ' + this.key_ + ': ' + message);
@@ -119,12 +151,13 @@
                                     null,
                                     this.close.bind(this));
     } else {
-      log.warn('postMessage failed for ' + this.key_ +
+      log.warn('postMessage failed for session ' + this.key_ +
           '; no Cast session or not connected');
     }
   };
 
-  // NOTE: Should this return a Promise?
+  // Closes the presentation (by disconnecting from the underlying Cast
+  // session).
   PresentationSession.prototype.close = function() {
     if (this.state == 'disconnected') {
       return;
@@ -157,13 +190,14 @@
     this.castSession_ = session;
     this.castSessionId = session.id;
     this.castSession_.addMessageListener(PRESENTATION_API_NAMESPACE_,
-                                         this.onCastMessage_.bind(this));
+                                         this.onPresentationMessage_.bind(this));
     this.castSession_.addUpdateListener(this.onCastSessionUpdate_.bind(this));
     this.state = 'connected';
     this.fireStateChange_();
   };
 
-  PresentationSession.prototype.onCastMessage_ = function(namespace, message) {
+  PresentationSession.prototype.onPresentationMessage_ =
+      function(namespace, message) {
     if (namespace != CAST_NAMESPACE_ ||
         typeof(this.onmessage) != 'function') {
       return;
@@ -185,8 +219,7 @@
 
   PresentationSession.prototype.fireStateChange_ = function() {
     if (typeof(this.onstatechange) == 'function') {
-      // TODO(mfoltz): What is the event object???
-      this.onstatechange();
+      this.onstatechange(new StateChangeEvent(this.state));
     }
   };
 
@@ -207,13 +240,10 @@
   ////////////////////////////////////////////////////////////////////////////
   // Integration with Cast SDK.
 
-  // Invoked when a Cast session is connected.  We assume there is at most one
-  // pending PresentationSession.
+  // Invoked when a Cast session is connected.  Currently we don't support
+  // automatic connection.
   var onCastSession_ = function(castSession) {
-    if (!requestedSession_) return;
-    requestedSession_.setCastSession_(castSession);
-    requestedSession_.maybePresentURL_();
-    requestedSession_ = null;
+    log.info('onCastSession: connected to session ' + castSession.sessionId);
   };
 
   // Invoked when a Cast receiver is available or not.
@@ -221,44 +251,47 @@
     if (typeof(presentation.onavailablechange) != 'function') {
       return;
     }
+    log.info('onCastReceiverAvailable: available = ' + availability);
     if (availability == chrome.cast.ReceiverAvailability.AVAILABLE) {
-      presentation.onavailablechange({available: true});
+      presentation.onavailablechange(new AvailableChangeEvent(true));
     } else {
-      presentation.onavailablechange({available: false});
+      presentation.onavailablechange(new AvailableChangeEvent(false));
     }
   };
 
   var initializeCast_ = function() {
-    var apiConfig = new chrome.cast.ApiConfig(
-        new chrome.cast.SessionRequest(CAST_APP_ID),
-        onCastSession_,
-        onCastReceiverAvailable_,
-        chrome.cast.AutoJoinPolicy.PAGE_SCOPED);
-    chrome.cast.initialize(
-        apiConfig,
-        function() {
-          console.info('Cast Sender SDK initialized successfully'),
-          if (typeof window['__OnPresentationAPIAvailable'] == 'function') {
-            window['__OnPresentationAPIAvailable']();
-          }
-        },
-        function(error) {
-          console.info('Unable to initialize Cast Sender SDK: ' + JSON.stringify(error));
-        });
+    return new Promise(function(resolve, reject) {
+      var apiConfig = new chrome.cast.ApiConfig(
+          new chrome.cast.SessionRequest(PRESENTATION_APP_ID),
+          onCastSession_,
+          onCastReceiverAvailable_,
+          chrome.cast.AutoJoinPolicy.PAGE_SCOPED);
+      chrome.cast.initialize(
+          apiConfig,
+          function() {
+            log.info('Cast Sender SDK initialized successfully'),
+            resolve();
+          },
+          function(error) {
+            log.error('Unable to initialize Cast Sender SDK: ' + JSON.stringify(error));
+            reject(Error(JSON.stringify(error)));
+          });
+      });
   };
-
 
   // Load the Cast Sender SDK.
   window['__onGCastApiAvailable'] = function(loaded, error) {
     if (loaded) {
-      initializeCast_();
+      initializeCast_().then(function() {
+        castApiInitialized_ = true;
+        // Bind polyfill.
+        navigator['presentation'] = presentation;
+      });
     } else {
-      console.info('Cast Sender SDK not available: ' + JSON.stringify(error));
+      log.error('Cast Sender SDK not available: ' + JSON.stringify(error));
     };
+  }
   var script = document.createElement('script');
   script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js';
   document.head.appendChild(script);
-
-  // Bind polyfill.
-  navigator['presentation'] = presentation;
 })();
