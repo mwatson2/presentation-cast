@@ -6,7 +6,9 @@
 
 (function() {
 
-  var photos = [
+  var slideshow = {}
+
+  photos = [
     'https://lh6.googleusercontent.com/-WgmfKhudwbk/U-hux8yAVVI/AAAAAAAAo_w/8EiO-DsvaBE/w624-h1109-no/IMG_20140805_174338.jpg',
     'https://lh3.googleusercontent.com/-v-vyJ2YRMlE/U-huxzJwYII/AAAAAAAApCI/oMNmyvd94Cc/w878-h494-no/IMG_20140805_174453.jpg',
     'https://lh6.googleusercontent.com/-Jp88xjj1nVc/U-hux-AboOI/AAAAAAAApCM/UUMKL_aVVj8/w878-h494-no/IMG_20140806_110947.jpg',
@@ -22,10 +24,11 @@
   var presentation = null;
   var session = null;
   var screenAvailable = false;
-  var presentationUrl = 'http://mfoltzgoogle.github.io/presentation-cast/demo/slideshow/player.html';
+//  var presentationUrl = 'http://mfoltzgoogle.github.io/presentation-cast/demo/slideshow/player.html';
+  var presentationUrl = 'https://x20.corp.google.com/~mfoltz/presentation-cast/demo/slideshow/player.html';
   var presentationId = localStorage['presentationId'] || new String((Math.random() * 10000).toFixed(0));
 
-  var function startPresent() {
+  var startPresent = function() {
     presentation.startSession(presentationUrl, presentationId).then(
         function(newSession) {
           setSession(newSession, true);
@@ -36,13 +39,13 @@
         });
   };
 
-  function stopPresent() {
+  var stopPresent = function() {
     if (!session) return;
     session.close();
     delete localStorage['presentationId'];
   };
 
-  function setSession(theSession, isNew) {
+  var setSession = function(theSession, isNew) {
     if (session) {
       log.warning('setSession: Already have a session ' + session.url + '#' + session.id);
       return;
@@ -64,7 +67,7 @@
         break;
       }
     };
-  }
+  };
 
   // UX
 
@@ -75,13 +78,6 @@
     'play': null,
     'next': null,
     'previous': null
-  };
-
-  var buttonHandlers = {
-    'show': onShow,
-    'play': onPlay,
-    'next': onNext,
-    'previous': onPrevious
   };
 
   var updateButtons = function() {
@@ -152,16 +148,24 @@
     updateButtons();
   };
 
-  // Initialization
+  var buttonHandlers = {
+    'show': onShow,
+    'play': onPlay,
+    'next': onNext,
+    'previous': onPrevious
+  };
 
-  var init = function() {
-    presentation = navigator.presentation;
-
-    // Populate buttons.
+  // Bind buttons on document load.
+  window.addEventListener('DOMContentLoaded', function() {
     for var buttonName in buttons {
       buttons[buttonName] = document.getElementById(buttonName);
       buttons[buttonName].onclick = buttonHandlers[buttonName];
     }
+  };
+
+  // Initialization
+  var init = function() {
+    presentation = navigator.presentation;
 
     // Join an existing presentation if one exists.
     presentation.joinSession(presentationUrl, presentationId).then(
@@ -179,4 +183,5 @@
     };
   };
 
+  window['__onPresentationAvailable'] = init;
 })();

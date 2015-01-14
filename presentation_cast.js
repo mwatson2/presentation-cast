@@ -285,6 +285,11 @@
         castApiInitialized_ = true;
         // Bind polyfill.
         navigator['presentation'] = presentation;
+        // Invoke a well-known callback so clients are notified when they can
+        // call functions in the polyfill.
+        if (typeof window['__onPresentationAvailable'] == 'function') {
+          window['__onPresentationAvailable']();
+        }
       });
     } else {
       log.error('Cast Sender SDK not available: ' + JSON.stringify(error));
@@ -293,4 +298,5 @@
   var script = document.createElement('script');
   script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js';
   document.head.appendChild(script);
+
 })();
