@@ -12,7 +12,7 @@
     warn: function(message) {console.warn('[slideshow] ' + message);},
     error: function(message) {console.error('[slideshow] ' + message);}
   };
-  
+
   var slideshow = {};
 
   slideshow.init = function(photos) {
@@ -41,6 +41,7 @@
     slideshow.show(slideshow.current_index_);
   };
 
-  window.slideshow = slideshow;
-
+  // Bind the control functions to the correct property so commands are
+  // forwarded from the receiver shim.
+  window.w3c_slidy = slideshow;
 })();
