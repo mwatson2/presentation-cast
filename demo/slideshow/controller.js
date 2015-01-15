@@ -58,11 +58,15 @@
     }
     session = theSession;
     localStorage['presentationId'] = session.id;
+    if (session.state == 'connected' && isNew) {
+      log.info('New session ' + session.url + '|' + session.id + ' connected');
+      session.postMessage(JSON.stringify({cmd: 'init', params: photos}));
+    }
     session.onstatechange = function() {
       switch (session.state) {
         case 'connected':
-        log.info('Session ' + session.url + '|' + session.id + ' connected');
-        if (isNew) {
+          log.info('Session ' + session.url + '|' + session.id + ' connected');
+          if (isNew) {
           session.postMessage(JSON.stringify({cmd: 'init', params: photos}));
         }
         updateButtons();
