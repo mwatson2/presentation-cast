@@ -24,13 +24,12 @@
   var presentation = null;
   var session = null;
   var screenAvailable = false;
-//  var presentationUrl = 'http://mfoltzgoogle.github.io/presentation-cast/demo/slideshow/player.html';
-  var presentationUrl = 'http://172.17.32.165:8000/demo/slideshow/player.html';
-  var presentationId = localStorage['presentationId'] || new String((Math.random() * 10000).toFixed(0));
+  var presentationUrl = window.location.origin + '/presentation-cast/demo/slideshow/player.html';
+  var presentationId = localStorage['presentationId'];
 
   var startPresent = function() {
     return new Promise(function(resolve, reject) {
-      presentation.startSession(presentationUrl, presentationId).then(
+      presentation.startSession(presentationUrl).then(
           function(newSession) {
             setSession(newSession, true);
             resolve();

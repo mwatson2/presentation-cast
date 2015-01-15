@@ -27,7 +27,8 @@
   var pendingSession_ = null;
 
   // https://webscreens.github.io/slidyremote/receiver.html
-  var SLIDY_APP_ID_ = '673D55D4';
+  // var SLIDY_APP_ID_ = '673D55D4';
+  var SLIDY_APP_ID_ = '5E735230';  
   var SLIDY_NAMESPACE_ = 'urn:x-cast:org.w3.webscreens.presentationapi.shim';
   var ORIGIN_RE_ = new RegExp('https?://[^/]+');
 
