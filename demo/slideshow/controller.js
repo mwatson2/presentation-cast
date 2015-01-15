@@ -8,6 +8,8 @@
 
   var slideshow = {}
 
+  // TODO(mfoltz): Fix this to get high resolution photos
+
   photos = [
     'https://lh6.googleusercontent.com/-WgmfKhudwbk/U-hux8yAVVI/AAAAAAAAo_w/8EiO-DsvaBE/w624-h1109-no/IMG_20140805_174338.jpg',
     'https://lh3.googleusercontent.com/-v-vyJ2YRMlE/U-huxzJwYII/AAAAAAAApCI/oMNmyvd94Cc/w878-h494-no/IMG_20140805_174453.jpg',
@@ -57,30 +59,26 @@
     }
     session = theSession;
     localStorage['presentationId'] = session.id;
-    if (session.state == 'connected' && isNew) {
-      log.info('New session ' + session.url + '|' + session.id + ' connected');
-      session.postMessage(JSON.stringify({cmd: 'init', params: photos}));
-    }
     session.onstatechange = function() {
       switch (session.state) {
         case 'connected':
           log.info('Session ' + session.url + '|' + session.id + ' connected');
-          if (isNew) {
-          session.postMessage(JSON.stringify({cmd: 'init', params: photos}));
-        }
-        updateButtons();
-        break;
+          updateButtons();
+          break;
         case 'disconnected':
-        log.info('Session ' + session.url + '|' + session.id + ' disconnected');
-        updateButtons();
-        break;
+          log.info('Session ' + session.url + '|' + session.id + ' disconnected');
+          updateButtons();
+          break;
       }
     };
   };
 
   // UX
 
+  // TODO(mfoltz): This will not work for sessions that are joined.
+  // Need to be able to send status from the player.
   var playing = false;
+  var initialized = false;
 
   var buttons = {
     'show': null,
@@ -106,6 +104,9 @@
       });
     } else if (session) {
       stopPresent().then(function() {
+        // TODO(mfoltz): Instead, listen for disconnect and clean up in handler
+        playing = false;
+        initialized = false;
         updateButtons();
       });
     }
@@ -116,6 +117,10 @@
     if (!session || session.state != 'connected') {
       log.warning('onPlay called with no connected session!');
       return true;
+    }
+    if (!initialized) {
+      session.postMessage(JSON.stringify({cmd: 'init', params: [photos]}));
+      initialized = true;
     }
     if (playing) {
       session.postMessage(JSON.stringify({cmd: 'pause'}));

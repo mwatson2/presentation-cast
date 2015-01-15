@@ -72,12 +72,7 @@
 
   window.addEventListener('DOMContentLoaded', function() {
     img = document.getElementsByTagName('img')[0];
-    // TODO(mfoltz): Show a spinner or other interstitial while waiting for
-    // photos
-    if (photos.length > 0) {
-      slideshow.show(current_index);
-    } else {
-      img.style.display = 'none';
-    }
+    img.style.display = 'none';
+    // TODO: Tell user the slideshow is ready to play
   });
 })();
