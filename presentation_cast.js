@@ -13,6 +13,18 @@
     error: function(message) {console.error('[presentation_cast] ' + message);}
   };
 
+  // Guesstimate where we are running to return the correct app ID to the
+  // slidyremote Cast app.
+  var getSlidyAppId_ = function() {
+    var origin = window.location.origin;
+    if (origin.search('^http://172\\.[0-9.:]+$') == 0) {
+      return 'B46B8FE4';
+    } else if (origin.search('^http://192\\.[0-9.:]+$') == 0) {
+      return '5E735230';
+    }
+    return 'CC9C7FD8';
+  };
+
   ////////////////////////////////////////////////////////////////////////////
   // Bookkeeping for the polyfill.
 
@@ -26,9 +38,7 @@
   // joined, to link up with listeners in the Cast SDK.
   var pendingSession_ = null;
 
-  // https://webscreens.github.io/slidyremote/receiver.html
-  // var SLIDY_APP_ID_ = '673D55D4';
-  var SLIDY_APP_ID_ = '5E735230';  
+  var SLIDY_APP_ID_ = getSlidyAppId_();
   var SLIDY_NAMESPACE_ = 'urn:x-cast:org.w3.webscreens.presentationapi.shim';
   var ORIGIN_RE_ = new RegExp('https?://[^/]+');
 

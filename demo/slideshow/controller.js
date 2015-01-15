@@ -21,11 +21,10 @@
     'https://lh4.googleusercontent.com/-hLzVqPvwcno/U-huxzSnkNI/AAAAAAAApCc/GO0_8VGkmiw/w879-h501-no/IMG_20140808_113708.jpg'
   ];
 
-  // Presentation API integration
+  // Presentation API integration.  Handles start/join behavior and tracks screen availability.
 
   var presentation = null;
   var session = null;
-  var screenAvailable = false;
   var presentationUrl = window.location.origin + '/presentation-cast/demo/slideshow/player.html';
   var presentationId = localStorage['presentationId'];
 
@@ -34,7 +33,7 @@
       presentation.startSession(presentationUrl).then(
           function(newSession) {
             setSession(newSession, true);
-            resolve();
+            resolve(newSession);
           },
           function() {
             reject(Error('User canceled presentation'));
@@ -45,9 +44,10 @@
   var stopPresent = function() {
     return new Promise(function(resolve, reject) {
       if (!session) reject(Error('No session'))
-      session.close();
-      delete localStorage['presentationId'];
-      session = null;
+      if (session.state == 'connected') {
+        session.close();
+      }
+      clearSession();
       resolve();
     });
   };
@@ -59,26 +59,20 @@
     }
     session = theSession;
     localStorage['presentationId'] = session.id;
-    session.onstatechange = function() {
-      switch (session.state) {
-        case 'connected':
-          log.info('Session ' + session.url + '|' + session.id + ' connected');
-          updateButtons();
-          break;
-        case 'disconnected':
-          log.info('Session ' + session.url + '|' + session.id + ' disconnected');
-          updateButtons();
-          break;
-      }
-    };
   };
 
-  // UX
+  var clearSession = function() {
+    delete localStorage['presentationId'];
+    session = null;
+  };
 
-  // TODO(mfoltz): This will not work for sessions that are joined.
-  // Need to be able to send status from the player.
-  var playing = false;
-  var initialized = false;
+  // Slideshow-specific controller logic.
+
+  // Last status update from the player.
+  var status = null;
+
+  // Current status of screen availability.
+  var screenAvailable = false;
 
   var buttons = {
     'show': null,
@@ -92,23 +86,19 @@
     buttons['show'].disabled = !(session || screenAvailable)
     buttons['show'].innerText = !!session ? 'Stop' : 'Show';
     buttons['play'].disabled = !session || session.state != 'connected';
-    buttons['play'].innerText = playing ? 'Pause' : 'Play';
+    buttons['play'].innerText = (status && status.playing) ? 'Pause' : 'Play';
     buttons['next'].disabled = !session || session.state != 'connected';
     buttons['previous'].disabled = !session || session.state != 'connected';
   };
 
   var onShow = function(e) {
     if (!session && screenAvailable) {
-      startPresent().then(function() {
+      startPresent().then(function(newSession) {
+        setControllerSession(newSession);
         updateButtons();
       });
     } else if (session) {
-      stopPresent().then(function() {
-        // TODO(mfoltz): Instead, listen for disconnect and clean up in handler
-        playing = false;
-        initialized = false;
-        updateButtons();
-      });
+      stopPresent().then(updateButtons);
     }
     return true;
   };
@@ -118,22 +108,10 @@
       log.warning('onPlay called with no connected session!');
       return true;
     }
-    if (!initialized) {
-      session.postMessage(JSON.stringify({cmd: 'init', params: [photos]}));
-      initialized = true;
-    }
-    if (playing) {
+    if (status && status.playing) {
       session.postMessage(JSON.stringify({cmd: 'pause'}));
-      // TODO(mfoltz): More reliable to have presentation send status back to
-      // the controller, rather than assuming success.
-      playing = false;
-      updateButtons();
     } else {
       session.postMessage(JSON.stringify({cmd: 'play'}));
-      // TODO(mfoltz): More reliable to have presentation send status back to
-      // the controller, rather than assuming success.
-      playing = true;
-      updateButtons();
     }
     return true;
   };
@@ -144,10 +122,6 @@
       return;
     }
     session.postMessage(JSON.stringify({cmd: 'next'}));
-    // TODO(mfoltz): More reliable to have presentation send status back to
-    // the controller, rather than assuming success.
-    playing = false;
-    updateButtons();
   };
 
   var onPrevious = function(e) {
@@ -156,9 +130,34 @@
       return;
     }
     session.postMessage(JSON.stringify({cmd: 'previous'}));
-    // TODO(mfoltz): More reliable to have presentation send status back to
-    // the controller, rather than assuming success.
-    playing = false;
+  };
+
+  // Tells the slideshow controller that there is a presentation session
+  // available.
+  var setControllerSession = function(session) {
+    session.onmessage = function(event) {
+      onPlayerStatus(JSON.parse(event.data));
+    };
+    session.onstatechange = function() {
+      switch (session.state) {
+        case 'connected':
+          log.info('Session ' + session.url + '|' + session.id + ' connected');
+          break;
+        case 'disconnected':
+          log.info('Session ' + session.url + '|' + session.id + ' disconnected');
+          clearSession();
+          break;
+      }
+      updateButtons();
+    };
+  };
+
+  var onPlayerStatus = function(newStatus) {
+    if (newStatus.numPhotos == 0) {
+      // Initialize player with photo list.
+      session.postMessage(JSON.stringify({cmd: 'init', params: [photos]}));
+    }
+    status = newStatus;
     updateButtons();
   };
 
@@ -169,17 +168,15 @@
     'previous': onPrevious
   };
 
-  // Bind buttons on document load.
-  window.addEventListener('DOMContentLoaded', function() {
-    for (var buttonName in buttons) {
-      buttons[buttonName] = document.getElementById(buttonName);
-      buttons[buttonName].onclick = buttonHandlers[buttonName];
-    }
-  });
-
   // Initialization
   var init = function() {
     presentation = navigator.presentation;
+
+    // Listen for screen availability.
+    presentation.onavailablechange = function(e) {
+      screenAvailable = e.available;
+      updateButtons();
+    };
 
     // Join an existing presentation if one exists.
     presentation.joinSession(presentationUrl, presentationId).then(
@@ -191,11 +188,15 @@
           log.info('No presentation to join');
         });
 
-    presentation.onavailablechange = function(e) {
-      screenAvailable = e.available;
-      updateButtons();
-    };
   };
 
   window['__onPresentationAvailable'] = init;
+
+  // Bind buttons on document load.
+  window.addEventListener('DOMContentLoaded', function() {
+    for (var buttonName in buttons) {
+      buttons[buttonName] = document.getElementById(buttonName);
+      buttons[buttonName].onclick = buttonHandlers[buttonName];
+    }
+  });
 })();

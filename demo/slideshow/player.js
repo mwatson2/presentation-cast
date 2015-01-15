@@ -15,7 +15,7 @@
 
   var slideshow = {};
 
-  var current_index = 0;
+  var currentIndex = 0;
   var photos = [];
   var img = null;
   var interval = null;
@@ -23,7 +23,7 @@
   slideshow.init = function(thePhotos) {
     log.info('Init called with ' + thePhotos.length + ' photos');
     photos = thePhotos;
-    slideshow.show(current_index);
+    slideshow.show(currentIndex);
   };
 
   slideshow.show = function(index) {
@@ -34,6 +34,7 @@
     }
     img.src = photos[index];
     img.alt = 'Slideshow photo number ' + index;
+    slideshow.sendStatus();
   };
 
   slideshow.next = function() {
@@ -43,21 +44,22 @@
   }
 
   slideshow.advance = function() {
-    current_index = (current_index + 1) % photos.length;
-    slideshow.show(current_index);
+    currentIndex = (currentIndex + 1) % photos.length;
+    slideshow.show(currentIndex);
   };
 
   slideshow.previous = function() {
     log.info('previous');
     slideshow.pause();
-    current_index = current_index == 0 ? photos.length - 1 : current_index - 1;
-    slideshow.show(current_index);
+    currentIndex = currentIndex == 0 ? photos.length - 1 : currentIndex - 1;
+    slideshow.show(currentIndex);
   };
 
   slideshow.play = function() {
     log.info('play');
     if (!!interval) return;
     interval = window.setInterval(slideshow.advance, 5000);
+    slideshow.sendStatus();
   };
 
   slideshow.pause = function() {
@@ -65,14 +67,31 @@
     if (!interval) return;
     window.clearInterval(interval);
     interval = null;
+    slideshow.sendStatus();
   };
 
-  // For compatibiltity with slidyremote.
-  window['w3c_slidy'] = slideshow;
+  slideshow.sendStatus = function() {
+    if (!slideshow.postMessage) {
+      log.warning('sendStatus: postMessage not set!');
+      return;
+    }
+    var status = JSON.stringify({
+      currentIndex: currentIndex,
+      numPhotos: photos.length,
+      playing: (interval != null)
+    });
+    log.info('sendStatus: ' + status);
+    slideshow.postMessage(status);
+  };
 
-  window.addEventListener('DOMContentLoaded', function() {
+  // Integration with slidyremote receiver.
+  slideshow.postMessage = null;
+  slideshow.onLoad = function(postMessage) {
+    slideshow.postMessage = postMessage;
     img = document.getElementsByTagName('img')[0];
     img.style.display = 'none';
-    // TODO: Tell user the slideshow is ready to play
-  });
+    slideshow.sendStatus();
+  };
+
+  window['w3c_slidy'] = slideshow;
 })();
