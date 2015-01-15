@@ -25,29 +25,35 @@
   var session = null;
   var screenAvailable = false;
 //  var presentationUrl = 'http://mfoltzgoogle.github.io/presentation-cast/demo/slideshow/player.html';
-  var presentationUrl = 'https://x20.corp.google.com/~mfoltz/presentation-cast/demo/slideshow/player.html';
+  var presentationUrl = 'http://172.17.32.165:8000/demo/slideshow/player.html';
   var presentationId = localStorage['presentationId'] || new String((Math.random() * 10000).toFixed(0));
 
   var startPresent = function() {
-    presentation.startSession(presentationUrl, presentationId).then(
-        function(newSession) {
-          setSession(newSession, true);
-          updateButtons();
-        },
-        function() {
-          // User cancelled, etc.
-        });
+    return new Promise(function(resolve, reject) {
+      presentation.startSession(presentationUrl, presentationId).then(
+          function(newSession) {
+            setSession(newSession, true);
+            resolve();
+          },
+          function() {
+            reject(Error('User canceled presentation'));
+          });
+      });
   };
 
   var stopPresent = function() {
-    if (!session) return;
-    session.close();
-    delete localStorage['presentationId'];
+    return new Promise(function(resolve, reject) {
+      if (!session) reject(Error('No session'))
+      session.close();
+      delete localStorage['presentationId'];
+      session = null;
+      resolve();
+    });
   };
 
   var setSession = function(theSession, isNew) {
     if (session) {
-      log.warning('setSession: Already have a session ' + session.url + '#' + session.id);
+      log.warning('setSession: Already have a session ' + session.url + '|' + session.id);
       return;
     }
     session = theSession;
@@ -55,14 +61,14 @@
     session.onstatechange = function() {
       switch (session.state) {
         case 'connected':
-        log.info('Session ' + session.url + '#' + session.id + ' connected');
+        log.info('Session ' + session.url + '|' + session.id + ' connected');
         if (isNew) {
           session.postMessage(JSON.stringify({cmd: 'init', params: photos}));
         }
         updateButtons();
         break;
         case 'disconnected':
-        log.info('Session ' + session.url + '#' + session.id + ' disconnected');
+        log.info('Session ' + session.url + '|' + session.id + ' disconnected');
         updateButtons();
         break;
       }
@@ -83,9 +89,9 @@
   var updateButtons = function() {
     log.info('Updating button state');
     buttons['show'].disabled = !(session || screenAvailable)
-    buttons['show'].name = !!session ? 'Stop' : 'Show';
+    buttons['show'].innerText = !!session ? 'Stop' : 'Show';
     buttons['play'].disabled = !session || session.state != 'connected';
-    buttons['play'].name = playing ? 'Pause' : 'Play';
+    buttons['play'].innerText = playing ? 'Pause' : 'Play';
     buttons['next'].disabled = !session || session.state != 'connected';
     buttons['previous'].disabled = !session || session.state != 'connected';
   };
@@ -157,11 +163,11 @@
 
   // Bind buttons on document load.
   window.addEventListener('DOMContentLoaded', function() {
-    for var buttonName in buttons {
+    for (var buttonName in buttons) {
       buttons[buttonName] = document.getElementById(buttonName);
       buttons[buttonName].onclick = buttonHandlers[buttonName];
     }
-  };
+  });
 
   // Initialization
   var init = function() {
