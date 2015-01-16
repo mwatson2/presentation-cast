@@ -49,7 +49,7 @@
     var str = JSON.stringify(obj);
     log.info('sendMessage: ' + str);
     session.postMessage(str);
-  }; 
+  };
 
   var stopPresent = function() {
     return new Promise(function(resolve, reject) {
