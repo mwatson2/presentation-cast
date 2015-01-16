@@ -5,9 +5,9 @@ that leverages the [Google Cast Sender SDK for Chrome](https://developers.google
 To use it you must have a Chromecast available on your browser's WiFi network, use the
 Chrome browser, and install the [Google Cast extension](https://chrome.google.com/webstore/detail/google-cast-beta/dliochdbjfkdbacpmhlcpmleaejidimm).
 
-Currently this polyfill is only intended to be used on pages that control (open)
-presentations, not on pages that render presentations.  Presentation rendering
-is supplied by a modified version of the
+Currently this polyfill is only intended to be used on pages that control
+(```startSession```/```joinSession```) presentations, not on pages that render
+presentations.  Presentation rendering is supplied by a modified version of the
 [slidyremote](https://github.com/webscreens/slidyremote) Cast application.
 
 ## How to use
@@ -23,7 +23,8 @@ To use the polyfill:
     ...
   }
 
-  // Define a function in your page that will be called when the polyfill is ready to use.
+  // Define a function in your page that will be called when the polyfill is
+  // ready to use.
   window['__onPresentationAvailable'] = initializeController;
 </script>
 ```
@@ -31,6 +32,9 @@ To use the polyfill:
 See the demo below for a more complete example of Presentation API use.
 
 ## Missing features
+
+The polyfill currently does not persist the presentation state to localStorage
+so ```joinSession``` is not fully implemented, e.g. you cannot yet:
 
 1. Join an existing presentation by reloading the same tab
 2. Join an existing presentation from a different tab
