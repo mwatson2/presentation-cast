@@ -75,18 +75,19 @@
       log.warning('sendStatus: postMessage not set!');
       return;
     }
-    var status = JSON.stringify({
+    var status = {
       currentIndex: currentIndex,
       numPhotos: photos.length,
       playing: (interval != null)
-    });
-    log.info('sendStatus: ' + status);
+    };
+    log.info('sendStatus: ' + JSON.stringify(status));
     slideshow.postMessage(status);
   };
 
   // Integration with slidyremote receiver.
   slideshow.postMessage = null;
   slideshow.onLoad = function(postMessage) {
+    log.info('onLoad');
     slideshow.postMessage = postMessage;
     img = document.getElementsByTagName('img')[0];
     img.style.display = 'none';

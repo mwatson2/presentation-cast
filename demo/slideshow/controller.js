@@ -41,6 +41,16 @@
       });
   };
 
+  var sendMessage = function(obj) {
+    if (!session) {
+      log.warning('sendMessage: No session!');
+      return;
+    }
+    var str = JSON.stringify(obj);
+    log.info('sendMessage: ' + str);
+    session.postMessage(str);
+  }; 
+
   var stopPresent = function() {
     return new Promise(function(resolve, reject) {
       if (!session) reject(Error('No session'))
@@ -109,9 +119,9 @@
       return true;
     }
     if (status && status.playing) {
-      session.postMessage(JSON.stringify({cmd: 'pause'}));
+      sendMessage({cmd: 'pause'});
     } else {
-      session.postMessage(JSON.stringify({cmd: 'play'}));
+      sendMessage({cmd: 'play'});
     }
     return true;
   };
@@ -121,7 +131,7 @@
       log.warning('onNext called with no connected session!');
       return;
     }
-    session.postMessage(JSON.stringify({cmd: 'next'}));
+    sendMessage({cmd: 'next'});
   };
 
   var onPrevious = function(e) {
@@ -129,13 +139,15 @@
       log.warning('onPrevious called with no connected session!');
       return;
     }
-    session.postMessage(JSON.stringify({cmd: 'previous'}));
+    sendMessage({cmd: 'previous'});
   };
 
   // Tells the slideshow controller that there is a presentation session
   // available.
   var setControllerSession = function(session) {
+    log.info('setControllerSession: ' + session.url + '|' + session.id + ', state = ' + session.state);
     session.onmessage = function(event) {
+      log.info('onmessage: ' + event.data);
       onPlayerStatus(JSON.parse(event.data));
     };
     session.onstatechange = function() {
@@ -153,9 +165,9 @@
   };
 
   var onPlayerStatus = function(newStatus) {
-    if (newStatus.numPhotos == 0) {
+    if (newStatus.numPhotos === 0) {
       // Initialize player with photo list.
-      session.postMessage(JSON.stringify({cmd: 'init', params: [photos]}));
+      sendMessage({cmd: 'init', params: [photos]});
     }
     status = newStatus;
     updateButtons();
@@ -182,6 +194,7 @@
     presentation.joinSession(presentationUrl, presentationId).then(
         function(existingSession) {
           setSession(existingSession, false);
+          setControllerSession(existingSession);
           updateButtons();
         },
         function() {
