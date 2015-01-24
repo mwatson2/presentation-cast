@@ -38,6 +38,8 @@
   // joined, to link up with listeners in the Cast SDK.
   var pendingSession_ = null;
 
+  var SESSION_STORAGE_PREFIX_ = 'PresentationCast.APISession.';
+  var CAST_STORAGE_PREFIX_ = 'PresentationCast.CastSession.';
   var SLIDY_APP_ID_ = getSlidyAppId_();
   var SLIDY_NAMESPACE_ = 'urn:x-cast:org.w3.webscreens.presentationapi.shim';
   var ORIGIN_RE_ = new RegExp('https?://[^/]+');
@@ -97,13 +99,15 @@
       }
 
       presentationSessions_[session.key_] = session;
+      localStorage[SESSION_STORAGE_PREFIX_ + session.key_] = JSON.stringify(session);
 
       // Request a new session from the Cast SDK.
       chrome.cast.requestSession(function(castSession) {
         log.info('Got cast session ' + castSession.sessionId +
             ' for presentation ' + session.key_);
         session.setCastSession_(castSession);
-        castSessions_[castSession.sessionId] = session;
+        castSessions_[castSession.sessionId] = session.key_;
+        localStorage[CAST_STORAGE_PREFIX_ + castSession.sessionId] = session.key_;
         session.maybePresentUrl_();
         resolve(session);
       }, function(castError) {
@@ -127,8 +131,15 @@
       var existingSession = presentationSessions_[session.key_];
       if (existingSession) {
         resolve(existingSession);
+      } else if (localStorage[SESSION_STORAGE_KEY_ + session.key_]) {
+        existingSession = JSON.parse(localStorage[SESSION_STORAGE_KEY_ + session.key_]);
+        presentationSessions_[existingSession.key_] = existingSession;
+        // We don't resolve the Promise yet.  We stash it and ask the SDK for
+        // the corresponding Cast session.
+        chrome.cast.requestSessionById(existingSession.castSessionId_);
+        // TODO: Figure out how to store Promise and resolve it later
       } else {
-        // TODO(mfoltz): Keep promise pending in case the session is discovered later.
+        // TODO(mfoltz): Keep Promise in case the session is discovered later.
         reject(Error('No session available for ' + session.key_));
       }
     });
@@ -311,7 +322,3 @@
   document.head.appendChild(script);
 
 })();
-
-
-// TODO: Fix this
-// Uncaught TypeError: Cannot read property 'state' of nullcontroller.js:61 session.onstatechangepresentation_cast.js:222 PresentationSession.fireStateChange_presentation_cast.js:212 PresentationSession.onCastSessionUpdate_cast_sender.js:5875 (anonymous function)cast_sender.js:5874 b.uicast_sender.js:5867 b.Clcast_sender.js:5825 b.Wncast_sender.js:5703 chrome.cast.pc.Ip
