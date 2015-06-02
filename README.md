@@ -10,6 +10,8 @@ Currently this polyfill is only intended to be used on pages that control
 presentations.  Presentation rendering is supplied by a modified version of the
 [slidyremote](https://github.com/webscreens/slidyremote) Cast application.
 
+Additionally, support is provided for discovering and launching DIAL applications.
+
 ## How to use
 
 To use the polyfill:
@@ -27,6 +29,7 @@ To use the polyfill:
   // ready to use.
   window['__onPresentationAvailable'] = initializeController;
 </script>
+<link href="http://www.example.com/#__castAppId__=B46B8FE4" rel="default-presentation"/>
 ```
 
 See the demo below for a more complete example of Presentation API use.
