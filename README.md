@@ -32,6 +32,12 @@ To use the polyfill:
 <link href="http://www.example.com/#__castAppId__=B46B8FE4" rel="default-presentation"/>
 ```
 
+To request a DIAL application, use the __dialAppName__ and __dialPostData__ parameters in the URL
+fragment, as follows:
+```
+<link href="http://www.example.com/#__dialAppName__=Netflix/__dialPostDat__=667ouy7==" rel="default-presentation"/>
+```
+
 See the demo below for a more complete example of Presentation API use.
 
 ## Missing features
